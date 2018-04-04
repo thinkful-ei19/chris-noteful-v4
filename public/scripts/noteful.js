@@ -178,6 +178,10 @@ const noteful = (function () {
         tags: editForm.find('.js-note-tags-entry').val()
       };
 
+      if (!noteObj.folderId) {
+        alert(`Note requires a folder.`)
+      }
+
       if (store.currentNote.id) {
         api.update(`/api/notes/${noteObj.id}`, noteObj)
           .then(updateResponse => {
