@@ -6,12 +6,16 @@ const router = express.Router();
 const mongoose = require('mongoose');
 
 const Note = require('../models/note');
+const User = require('../models/user');
+const Tag = require('../models/tag');
+const Folder = require('../models/folder');
 
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/notes', (req, res, next) => {
   const { searchTerm, folderId, tagId } = req.query;
+  const userId = req.user.id;
 
-  let filter = {};
+  let filter = {userId: userId};
 
   /**
    * BONUS CHALLENGE - Search both title and content using $OR Operator
@@ -45,6 +49,9 @@ router.get('/notes', (req, res, next) => {
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/notes/:id', (req, res, next) => {
   const { id } = req.params;
+  const userId = req.user.id;
+  console.log(id);
+  console.log(userId);
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     const err = new Error('The `id` is not valid');
@@ -52,7 +59,7 @@ router.get('/notes/:id', (req, res, next) => {
     return next(err);
   }
 
-  Note.findById(id)
+  Note.findOne({ _id: id, userId })
     .populate('tags')
     .then(result => {
       if (result) {
@@ -69,6 +76,7 @@ router.get('/notes/:id', (req, res, next) => {
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/notes', (req, res, next) => {
   const { title, content, folderId, tags } = req.body;
+  const userId = req.user.id;
 
   /***** Never trust users - validate input *****/
   if (!title) {
@@ -87,21 +95,66 @@ router.post('/notes', (req, res, next) => {
     });
   }
 
-  const newItem = { title, content, folderId, tags };
-
-  Note.create(newItem)
-    .then(result => {
-      res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
+  const newItem = { title, content, folderId, tags, userId };
+  //Check to see if folderId and tags already exist.
+  let usersTag = true;
+  tags.forEach((item) => {
+    Tag.findById(item)
+      .then((result) => {
+        console.log(`${result.userId} -- ${userId}`)
+        if (String(result.userId) !== String(userId)) {
+          usersTag = false;
+        }
+      })
+      .catch((err) => {
+        next(err)
+      })
+  })
+  let usersFolder = true;
+  if (folderId) {
+    Folder.findById(folderId)
+    .then((result) => {
+      console.log(`${result.userId} -- ${userId}`)
+      if (String(result.userId) !== String(userId)) {
+        usersFolder = false;
+      }
     })
-    .catch(err => {
+    .catch((err) => {
       next(err);
-    });
+    })
+  }
+
+  setTimeout( function() {
+    console.log('tag: ' + usersTag);
+    console.log('folder: ' + usersFolder)
+    if (usersFolder === true && usersTag === true) {
+      Note.create(newItem)
+      .then(result => {
+        res.location(`${req.originalUrl}/${result.id}`).status(201).json(result);
+      })
+      .catch(err => {
+        next(err);
+      });
+    } else {
+      const err = new Error('You are attempting to append this new note to folders/tags that are not yours.');
+      err.status = 400;
+      return next(err);
+    }
+  }, 1000)
+ 
+
+
+
 });
 
 /* ========== PUT/UPDATE A SINGLE ITEM ========== */
 router.put('/notes/:id', (req, res, next) => {
   const { id } = req.params;
   const { title, content, folderId, tags } = req.body;
+  const userId = req.user.id;
+
+  const updateItem = { title, content, tags, userId};
+  console.log(updateItem);
 
   /***** Never trust users - validate input *****/
   if (!title) {
@@ -131,34 +184,103 @@ router.put('/notes/:id', (req, res, next) => {
   }
 
 
-  const updateItem = { title, content, tags };
   const options = { new: true };
 
-  Note.findByIdAndUpdate(id, updateItem, options)
-    .populate('tags')
-    .then(result => {
-      if (result) {
-        res.json(result);
-      } else {
-        next();
+  let usersTag = true;
+  tags.forEach((item) => {
+    Tag.findById(item)
+      .then((result) => {
+        console.log(`${result.userId} -- ${userId}`)
+        if (String(result.userId) !== String(userId)) {
+          usersTag = false;
+        }
+      })
+      .catch((err) => {
+        next(err)
+      })
+  })
+  let usersFolder = true;
+  if (folderId) {
+    Folder.findById(folderId)
+    .then((result) => {
+      console.log(`${result.userId} -- ${userId}`)
+      if (String(result.userId) !== String(userId)) {
+        usersFolder = false;
       }
     })
-    .catch(err => {
+    .catch((err) => {
       next(err);
-    });
+    })
+  }
+
+  setTimeout( function() {
+    console.log('tag: ' + usersTag);
+    console.log('folder: ' + usersFolder)
+    if (usersFolder === true && usersTag === true) {
+      Note.findById(id)
+      .then((result) => {
+        if (String(result.userId) === String(userId)) {
+          Note.findByIdAndUpdate(id, updateItem, options)
+          .then(result => {
+            res.json(result);
+          })
+          .catch(err => {
+            next(err);
+          })
+        }
+        else {
+          const err = new Error('This id does not belong to this user.');
+          err.status = 400;
+          return next(err);
+        }
+      })
+      .catch((err)=> {
+        next(err);
+      })
+    } else {
+      const err = new Error('You are attempting to append this new note to folders/tags that are not yours.');
+      err.status = 400;
+      return next(err);
+    }
+  }, 1000)
+ 
+
+  // Note.findByIdAndUpdate(id, updateItem, options)
+  // .populate('tags')
+  // .then(result => {
+  //   if (result) {
+  //     res.json(result);
+  //   } else {
+  //     next();
+  //   }
+  // })
+  // .catch(err => {
+  //   next(err);
+  // });
+
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
 router.delete('/notes/:id', (req, res, next) => {
   const { id } = req.params;
+  const userId = req.user.id;
 
-  Note.findByIdAndRemove(id)
-    .then(() => {
-      res.status(204).end();
+  Note.findById(id)
+    .then((result) => {
+      if (String(result.userId) === String(userId)) {
+        Note.findByIdAndRemove(id)
+        .then(() => {
+          res.status(204).end();
+        })
+        .catch(err => {
+          next(err);
+        });
+      } else {
+        const err = new Error('This id does not belong to this user.');
+        err.status = 400;
+        return next(err);
+      }
     })
-    .catch(err => {
-      next(err);
-    });
 });
 
 module.exports = router;

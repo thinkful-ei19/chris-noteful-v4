@@ -10,7 +10,9 @@ const Note = require('../models/note');
 
 /* ========== GET/READ ALL ITEMS ========== */
 router.get('/tags', (req, res, next) => {
-  Tag.find()
+  const userId = req.user.id;
+
+  Tag.find({userId: userId})
     .sort('name')
     .then(results => {
       res.json(results);
@@ -23,6 +25,7 @@ router.get('/tags', (req, res, next) => {
 /* ========== GET/READ A SINGLE ITEM ========== */
 router.get('/tags/:id', (req, res, next) => {
   const { id } = req.params;
+  const userId = req.user.id;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     const err = new Error('The `id` is not valid');
@@ -30,7 +33,7 @@ router.get('/tags/:id', (req, res, next) => {
     return next(err);
   }
 
-  Tag.findById(id)
+  Tag.findOne({_id: id, userId})
     .then(result => {
       if (result) {
         res.json(result);
@@ -46,8 +49,9 @@ router.get('/tags/:id', (req, res, next) => {
 /* ========== POST/CREATE AN ITEM ========== */
 router.post('/tags', (req, res, next) => {
   const { name } = req.body;
+  const userId = req.user.id;
 
-  const newTag = { name };
+  const newTag = { name, userId };
 
   /***** Never trust users - validate input *****/
   if (!name) {
@@ -73,6 +77,7 @@ router.post('/tags', (req, res, next) => {
 router.put('/tags/:id', (req, res, next) => {
   const { id } = req.params;
   const { name } = req.body;
+  const userId = req.user.id;
 
   /***** Never trust users - validate input *****/
   if (!name) {
@@ -87,46 +92,71 @@ router.put('/tags/:id', (req, res, next) => {
     return next(err);
   }
 
-  const updateTag = { name };
+  const updateTag = { name, userId };
 
-  Tag.findByIdAndUpdate(id, updateTag, { new: true })
-    .then(result => {
-      if (result) {
-        res.json(result);
-      } else {
-        next();
+  Tag.findById(id)
+    .then((result) => {
+      if (String(result.userId) === String(userId)) {
+        Tag.findByIdAndUpdate(id, updateTag, { new: true })
+          .then(result => {
+            if (result) {
+              res.json(result);
+            } else {
+              next();
+            }
+          })
+          .catch(err => {
+            if (err.code === 11000) {
+              err = new Error('The tag name already exists');
+              err.status = 400;
+            }
+            next(err);
+          });
+      }
+      else {
+        const err = new Error('This id does not belong to this user.');
+        err.status = 400;
+        return next(err);
       }
     })
-    .catch(err => {
-      if (err.code === 11000) {
-        err = new Error('The tag name already exists');
-        err.status = 400;
-      }
+    .catch((err)=> {
       next(err);
-    });
+    })
 });
 
 /* ========== DELETE/REMOVE A SINGLE ITEM ========== */
 router.delete('/tags/:id', (req, res, next) => {
   const { id } = req.params;
-  const tagRemovePromise = Tag.findByIdAndRemove(id);
-  // const tagRemovePromise = Tag.remove({ _id: id }); // NOTE **underscore** _id
+  const userId = req.user.id;
 
-  const noteUpdatePromise = Note.updateMany(
-    { 'tags': id, },
-    { '$pull': { 'tags': id } }
-  );
-
-  Promise.all([tagRemovePromise, noteUpdatePromise])
-    .then(([tagResult]) => {
-      if (tagResult) {
-        res.status(204).end();
-      } else {
-        next();
+  Tag.findById(id)
+    .then((result) => {
+      if (String(result.userId) === String(userId)) {
+        const tagRemovePromise = Tag.findByIdAndRemove(id);
+        // const tagRemovePromise = Tag.remove({ _id: id }); // NOTE **underscore** _id
+      
+        const noteUpdatePromise = Note.updateMany(
+          { 'tags': id, },
+          { '$pull': { 'tags': id } }
+        );
+      
+        Promise.all([tagRemovePromise, noteUpdatePromise])
+          .then(([tagResult]) => {
+            if (tagResult) {
+              res.status(204).end();
+            } else {
+              next();
+            }
+          })
+          .catch(err => {
+            next(err); });
+      }
+      else {
+        const err = new Error('This id does not belong to this user.');
+        err.status = 400;
+        return next(err);
       }
     })
-    .catch(err => {
-      next(err); });
 
 });
 

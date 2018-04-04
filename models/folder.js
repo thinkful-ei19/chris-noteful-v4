@@ -3,8 +3,13 @@
 const mongoose = require('mongoose');
 
 const folderSchema = new mongoose.Schema({
-  name: { type: String, unique: true}
+  name: { type: String},
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 });
+
+//Compound index, creates new parameters for the schema in which two parameters or more are combined.
+//Here, the name and userId parameters are combined to become unique as a combination, but not singularily.
+folderSchema.index({ name: 1, userId: 1}, { unique: true });
 
 folderSchema.set('toObject', {
   transform: function (doc, ret) {
