@@ -96,7 +96,8 @@ router.post('/notes', (req, res, next) => {
   }
 
   const newItem = { title, content, folderId, tags, userId };
-  //Check to see if folderId and tags already exist.
+  
+  //Check to see if folderId and tags are user's own.
   let usersTag = true;
   tags.forEach((item) => {
     Tag.findById(item)
