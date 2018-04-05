@@ -7,11 +7,24 @@ router.post('/users', (req, res, next) => {
     const { fullname, username, password } = req.body;
 
     //Chest for missing fields.
-    const requiredFields = ['username', 'password'];
-    const missingField = requiredFields.find(field => (!field in req.body));
+    // const requiredFields = ['username', 'password'];
+    // const missingField = requiredFields.find(field => (!field in req.body))
 
-    if (missingField) {
-        const err = new Error(`Missing '${missingField}' in request body.`)
+    // if (missingField) {
+    //     const err = new Error(`Missing '${missingField}' in request body.`)
+    //     err.status = 422;
+    //     return next(err);
+    // }
+
+    //Check that the username is a minimum of 1 character
+    
+    if (!req.body.password) {
+        const err = new Error('Missing `password` in request body')
+        err.status = 422;
+        return next(err);
+    }
+    if (!req.body.username) {
+        const err = new Error('Missing `username` in request body')
         err.status = 422;
         return next(err);
     }
@@ -35,7 +48,7 @@ router.post('/users', (req, res, next) => {
     //Check that entries are strings.
     const notString = function (string) {
         if (typeof string !== 'string') {
-            const err = new Error(`'${string}' is not a string.`)
+            const err = new Error(`Provided information contains an entry that is not a string.`)
             err.status = 422;
             return next(err);
         }
@@ -46,19 +59,8 @@ router.post('/users', (req, res, next) => {
         checkWhiteSpace(item);
     })
 
-    //Check that the username is a minimum of 1 character
-    if (username.length < 1) {
-        const err = new Error(`Username must be at least one character long.`)
-        err.status = 422;
-        return next(err);
-    }
-
     //Check that the password is a minimum of 8 characters and a maximum of 72 characters
-    if (password.length < 8 || password.length > 72) {
-        const err = new Error(`Password must be between 8 to 72 characters in length.`)
-        err.status = 422;
-        return next(err);
-    }
+    
 
     if (!username) {
         const err = new Error('Missing `username` in request body');
@@ -68,6 +70,16 @@ router.post('/users', (req, res, next) => {
     if (!password) {
         const err = new Error('Missing `password` in request body');
         err.status = 400;
+        return next(err);
+    } else if (password.length < 8 || password.length > 72) {
+        const err = new Error(`Password must be between 8 to 72 characters in length.`)
+        err.status = 422;
+        return next(err);
+    }
+
+    if (username.length < 1) {
+        const err = new Error(`Username must be at least one character long.`)
+        err.status = 422;
         return next(err);
     }
 
@@ -88,7 +100,7 @@ router.post('/users', (req, res, next) => {
                 return User.hashPassword(password)
                     .then(digest => {
                         const newUser = {
-                            fullname: fullname,
+                            fullname: fullname.trim(),
                             username: username,
                             password: digest
                         }

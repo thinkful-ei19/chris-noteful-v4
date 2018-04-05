@@ -69,7 +69,7 @@ router.get('/notes/:id', (req, res, next) => {
       }
     })
     .catch(err => {
-      next(err);
+      next(err);z
     });
 });
 
