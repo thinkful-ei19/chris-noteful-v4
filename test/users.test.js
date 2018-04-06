@@ -6,7 +6,7 @@ const chaiHttp = require('chai-http');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 
-const { TEST_MONGODB_URI } = require('../config'); ('../config');
+const { TEST_MONGODB_URI } = require('../config');
 
 const User = require('../models/user');
 
@@ -117,7 +117,7 @@ describe('Noteful API - Users', function () {
           const testUser =  {
             username: "Blah Blah",
             password: "yesyesyes",
-            fullname: "Fido Fido"      
+            fullname: "Fido Fido"
           }
           return chai.request(app).post('/api/users').send(testUser)
             .catch(err => err.response)

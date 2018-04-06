@@ -220,6 +220,11 @@ router.put('/notes/:id', (req, res, next) => {
     if (usersFolder === true && usersTag === true) {
       Note.findById(id)
       .then((result) => {
+        if (result === null) {
+          const err = new Error('The `id` does not exist.');
+          err.status = 404;
+          return next(err);
+        }
         if (String(result.userId) === String(userId)) {
           Note.findByIdAndUpdate(id, updateItem, options)
           .then(result => {

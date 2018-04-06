@@ -95,8 +95,14 @@ router.put('/folders/:id', (req, res, next) => {
   const updateFolder = { name };
 
 
+
   Folder.findById(id)
     .then((result) => {
+      if (result === null) {
+        const err = new Error('The `id` does not exist.');
+        err.status = 404;
+        return next(err);
+      }
       if (String(result.userId) === String(userId)) {
         Folder.findByIdAndUpdate(id, updateFolder, { new: true })
         .then(result => {

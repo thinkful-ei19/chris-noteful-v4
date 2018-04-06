@@ -35,6 +35,11 @@ router.get('/tags/:id', (req, res, next) => {
 
   Tag.findOne({_id: id, userId})
     .then(result => {
+      if (result === null) {
+        const err = new Error('The `id` does not exist.');
+        err.status = 404;
+        return next(err);
+      }
       if (result) {
         res.json(result);
       } else {
@@ -96,6 +101,11 @@ router.put('/tags/:id', (req, res, next) => {
 
   Tag.findById(id)
     .then((result) => {
+      if (result === null) {
+        const err = new Error('The `id` does not exist.');
+        err.status = 404;
+        return next(err);
+      }
       if (String(result.userId) === String(userId)) {
         Tag.findByIdAndUpdate(id, updateTag, { new: true })
           .then(result => {
